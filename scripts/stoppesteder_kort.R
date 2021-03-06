@@ -14,3 +14,5 @@ m <- leaflet(df) %>%
     radius = 5,
     weight = 2)
 m
+
+

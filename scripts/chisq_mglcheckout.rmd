@@ -1,0 +1,136 @@
+---
+title: "Fynbus" 
+subtitle: "DS815: Kvalitet og generaliserbarhed af data om social adfærd"
+
+author: |
+  | Alexander Dernild
+  | Syddansk Universitet
+  
+date: "`r format(Sys.time(), '%a %d %b %Y')`"
+
+output:
+  bookdown::pdf_document2:
+    toc: no
+    number_sections: false
+    latex_engine: lualatex
+fig_caption: yes
+
+
+always_allow_html: yes
+
+# These are LaTex settings to take care of floating figures/tables, line spacing, etc
+header-includes:
+  - \usepackage{float}  
+  - \floatplacement{figure}{ht}  
+  - \renewcommand{\baselinestretch}{1.5}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+
+options(knitr.table.format = "latex", OutDec = ",")
+```
+
+```{r libraries}
+library(tidyverse)
+library(knitr)
+library(corrplot)
+library(rpart)
+library(rpart.plot)
+library(caTools)
+```
+
+```{r data-load}
+df <- read.csv("../data/2020/Helrejser_Rejsekortet_januar_2020.csv", sep = ";") %>% 
+  select(MglCheckOut, KortType, ZonerRejst, SlutStopPointNavn, RejseDag, Pensionist, Ung, Voksen, Barn, Cykler, Hunde, Handicap)
+
+df$MglCheckOut[df$MglCheckOut == "Cuv"] <- "Check Udvej"
+
+df_2 <- read.csv("../data/2021/BilletData_Jan-2021/Helrejser_Rejsekortet_januar_2021.csv", sep = ";") %>% 
+  select(MglCheckOut, KortType, ZonerRejst, SlutStopPointNavn, RejseDag, Pensionist, Ung, Voksen, Barn, Cykler, Hunde, Handicap)
+
+df_3 <- df_2 %>% 
+  rbind(df)
+```
+
+```{r functions}
+source("chisq_helper_functions.R") # husk at chisq_helper_functions.R skal være i samme folder, som rmarkdown filen.
+```
+
+```{r tables}
+tab_2020 <- table(df$MglCheckOut, df$KortType)
+tab_2021 <- table(df_2$MglCheckOut, df_2$KortType)
+
+xsq_2020 <- xsq.test(tab_2020, "Manglende check ud og korttype 2020")
+xsq_2021 <- xsq.test(tab_2021, "Manglende check ud og korttype 2021")
+```
+
+**Hypotese:** Er det oftere folk med visse typer rejsekort (personligt, anonymt eller flex), der glemmer at checke ud, eller sker det uafhængigt?
+
+For at teste denne hypotese kan vi bruge en $\chi^2$-test for uafhængighed, der tester om to eller flere kategoriske variabler er uafhængige af hinanden.
+
+```{r observed}
+xsq_2020$observed
+xsq_2020$obs.prop
+```
+
+
+De ovenstående tabeller viser frekvensen af glemte udcheckninger, fordelt på de tre rejsekortstyper *Anonymt, Flex* og *Personligt*. Umiddelbart ser det ud til, at det oftest er personer med rejsekortstypen *Personligt*, der glemmer at checke ud, dernæst *Flex* og til sidst *Anonymt*. Ydermere tyder det på, at personer med et *Flex*-rejsekort oftere benytter *Check Udvej*-appen. 
+
+I tabel 3 nedenfor, fremgår den forventede frekvens af glemte udcheckninger, såfremt at glemte udcheckninger, sker uafhængigt af rejsekortstypen. Heri er det tydeligt, at personer med et *Personligt* rejsekort oftere glemmer at checke ud, end personer med de andre rejsekortstyper. Derudover viser det sig, at personer med et *Flex*-rejsekort oftere benytter *Check Udvej*-appen, end forventet.
+
+```{r expected}
+xsq_2020$expected
+```
+
+For at blive klogere på hvordan, det glemte check ud afhænger af rejsekortstypen, kan der laves en post-hoc test med de standardiserede chi-i-anden residualer, der viser forskellen mellem den observerede og forventede frekvens. Et positivt residual betyder, at der er flere end forventet i en bestemt kategori, og omvendt hvis residualet er negativt. 
+
+```{r post-hoc}
+post_hoc_chi(tab_2020, "Manglende check ud og korttype 2020", "bonferroni")
+```
+
+I den ovenstående tabel kan det ses, at der er en højere andel end forventet af rejsekortstypen *Anonymt* og *Flex*, der ikke har glemt at checke ud. Modsat viser tabellen, at der er flere med et *Personligt* rejsekort end forventet, der har glemt at checke ud. Derudover er personer med et *Flex* rejsekort, bedre til at benytte *Check Udvej*-appen end de med et *Personlig* kort, hvor residualet for dem med et *Anonymt* kort ikke er signifikant.
+
+På næste side er der en visualisering, af de standardiserede residualer, hvor en blå nuance betyder at der er flere end forventet, og en rød nuance det modsatte. 
+
+```{r corrplot, fig.cap="Visualisering af standardiserede residualer 2020", fig.width=12}
+corrplot(xsq_2020$stdres, 
+         method = "color", 
+         is.cor = F, 
+         tl.col = "Black", 
+         cl.align.text = "l")
+```
+
+
+\newpage
+
+For at se om det det samme mønster gentager sig i 2021, gentager vi de samme tests som før. I dataene fra 2021 er der dog den forskel, at brug af *Check-Udvej*-appen ikke er registreret. 
+
+```{r observed2}
+xsq_2021$observed
+```
+
+```{r expected2}
+xsq_2021$expected
+```
+Der er stadig i 2021, en meget stærk signifikant afhængighed, mellem rejsekortstype og glemte udcheckninger. Dog ser det ikke ud til at forskellen, mellem de forskellige rejsekortstyper, er lige så stor i 2021, som den var i 2020. Igen kan vi lave en post-hoc test med de standardiserede residualer, for at se hvor stor forskellen mellem korttyper er, og sammenligne det med forskellen i 2020. 
+
+```{r post-hoc2}
+post_hoc_chi(tab_2021, "Manglende check ud og korttype 2021", "bonferroni")
+```
+
+Det tyder på at afhængigheden mellem rejsekortstype og glemte udcheckninger, er blevet mindre fra 2020 til 2021, når man sammeligner post-hoc testene. Dog er afhængigheden stadig meget stærk signifikant, og forskellen mellem disse år kan evt. tilskrives, at der er mindre rejsende i 2021 end i 2020. 
+
+De standardiserede residualer fra 2021 testen, kan ligeledes 2020 residualerne visualiseres:
+
+```{r corrplot2, fig.cap="Visualisering af standardiserede residualer 2021", fig.width=7}
+corrplot(xsq_2021$stdres,
+         method = "color",
+         is.cor = F,
+         tl.col = "Black",
+         cl.align.text = "l",
+         cl.cex = .7)
+```
+
