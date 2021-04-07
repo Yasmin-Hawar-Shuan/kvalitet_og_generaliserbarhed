@@ -23,8 +23,10 @@ points <- c(
 
 years <- c(
   "none" = "none",
-  "2020" = "coords$board_2020",
-  "2021" = "coords$board_2021"
+  "Gennemsnit påstigere 2020" = "2020_p",
+  "Gennemsnit påstigere 2021" = "2021_p",
+  "Gennemsnit afstigere 2020" = "2020_i",
+  "Gennemsnit afstigere 2021" = "2021_i"
 )
 
 ui <- navbarPage("Fynbus",
@@ -127,29 +129,39 @@ server <- function(input, output) {
       proxy %>% 
         clearGroup("voi"))
     
-    if (input$year == "2020") {
-      dat <- coords$board_2020
-    }
-    if (input$year == "2021") {
-      dat <- coords$board_2021
-    }
-    
-    if (input$year != "none"){
-           proxy %>% 
-             clearGroup("stops") %>%
+    scaled_points <- function(dat) {
+      proxy %>% 
+        clearGroup("stops") %>%
         clearGroup("stops_scaled") %>% 
-             addCircles(
-               lng = ~dat$S_LONG,
-               lat = ~dat$S_LAT,
-               popup = ~paste(dat$Stopnavn, "Gennemsnitligt Indstigerantal: ", dat$occupancy_boarding),
-               color = "#5f9713",
-               radius = dat$occupancy_boarding * 15,
-               weight = 3,
-               group = "stops_scaled")
-      }else{
-        proxy %>% clearGroup("stops_scaled")
-               }
+        addCircles(
+          lng = ~dat$S_LONG,
+          lat = ~dat$S_LAT,
+          popup = ~paste(dat$Stopnavn, "Gennemsnit påstigerantal: ", dat$occupancy_boarding),
+          color = "#5f9713",
+          radius = dat$occupancy_boarding * 15,
+          weight = 3,
+          group = "stops_scaled")
+    }
     
+    scaled_points_2 <- function(dat) {
+      proxy %>% 
+        clearGroup("stops") %>%
+        clearGroup("stops_scaled") %>% 
+        addCircles(
+          lng = ~dat$S_LONG,
+          lat = ~dat$S_LAT,
+          popup = ~paste(dat$Stopnavn, "Gennemsnit afstigerantal: ", dat$occupancy_deboarding),
+          color = "#5f9713",
+          radius = dat$occupancy_deboarding * 15,
+          weight = 3,
+          group = "stops_scaled")
+    }
+    
+    ifelse(input$year != "none", ifelse(substr(input$year, 6, 6) == "p", 
+                                        ifelse(substr(input$year, 1, 4) == "2020", scaled_points(coords$board_2020), scaled_points(coords$board_2021)), 
+                                        ifelse(substr(input$year, 1, 4) == "2020", scaled_points_2(coords$board_2020), scaled_points_2(coords$board_2021))), 
+           proxy %>% 
+             clearGroup("stops_scaled"))
   })
 }
 
