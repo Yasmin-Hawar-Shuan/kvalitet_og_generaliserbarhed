@@ -29,6 +29,21 @@ years <- c(
   "Gennemsnit afstigere 2021" = "2021_i"
 )
 
+maptiler <- Sys.getenv("MAPTILER_API_KEY")
+thunder <- Sys.getenv("THUNDERFOREST_API_KEY")
+
+tiles <- c(
+  "Standard" = "Standard",
+  "Streets" = paste0("https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=", maptiler),
+  "Satellite" = paste0("https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=", maptiler),
+  "Pastel" = paste0("https://api.maptiler.com/maps/pastel/{z}/{x}/{y}.png?key=", maptiler),
+  "Topo" = paste0("https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=", maptiler),
+  "Transport" = paste0("https://tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=", thunder),
+  "Transport Dark" = paste0("https://tile.thunderforest.com/transport-dark/{z}/{x}/{y}.png?apikey=", thunder),
+  "Atlas" = paste0("https://tile.thunderforest.com/atlas/{z}/{x}/{y}.png?apikey=", thunder),
+  "Neighbourhood" = paste0("https://tile.thunderforest.com/neighbourhood/{z}/{x}/{y}.png?apikey=", thunder)
+)
+
 ui <- navbarPage("Fynbus",
                  tabPanel("Plots",
                           sidebarLayout(
@@ -47,6 +62,7 @@ ui <- navbarPage("Fynbus",
                           sidebarLayout(
                             sidebarPanel(checkboxGroupInput("point", "Transportmiddel", points),
                                          selectInput(inputId = "year", label = "Scaling", years),
+                                         selectInput(inputId = "tile", "Kort type", tiles),
                                          width = 2
                           ),
                           mainPanel(
@@ -68,14 +84,17 @@ server <- function(input, output) {
   
   output$map <- renderLeaflet({
     leaflet(coords) %>% 
-      addTiles() %>% 
-      setView(lng = 10.39, lat = 55.4, zoom = 14)
+        addTiles() %>% 
+          setView(lng = 10.39, lat = 55.4, zoom = 14)
   })
   
   observe({
+    proxy <- leafletProxy("map", data = coords)
+    tile <- input$tile
+    
+    ifelse(tile != "Standard", proxy %>% addTiles(urlTemplate = tile, group = "custom_tiles"), proxy %>% clearGroup("custom_tiles"))
 
     trans <- ifelse(points %in% input$point, T, F)
-    proxy <- leafletProxy("map", data = coords)
     
     ifelse(trans[1] == T,
            proxy %>% 
