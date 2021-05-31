@@ -3,22 +3,39 @@ library(ggplot2)
 library(plotly)
 library(tidyverse)
 library(leaflet)
+library(lubridate)
 
-deselect <- c("turngl", "TurtypeHelrejse", "StartStopPointNr", "SlutStopPointNr", "RejseAar", "RejseMd", "KortNr")
+# deselect <- c("turngl", "TurtypeHelrejse", "StartStopPointNr", "SlutStopPointNr", "RejseAar", "RejseMd", "KortNr")
+# 
+# df <- read.csv("../2020/Helrejser_Rejsekortet_januar_2020.csv", sep = ";")[1:10000, ] %>% 
+#   select(-all_of(deselect))
 
-df <- read.csv("../2020/Helrejser_Rejsekortet_januar_2020.csv", sep = ";")[1:10000, ] %>% 
-  select(-all_of(deselect))
+df <- read.csv("../2020/helrejser_numerisk.csv")[1:50000, -1]
+
+df$RejseDato <- df$RejseDato %>% 
+  dmy()
+df$SlutRejseTidsPunkt <- df$SlutRejseTidsPunkt %>% 
+  hm() %>% 
+  as.numeric()
+df$StartRejseTidsPunkt <- df$StartRejseTidsPunkt %>% 
+  hm() %>% 
+  as.numeric()
 
 coords <- list.files(".") %>% # setwd to a folder with data from just stops, bicycles, tier and voi scooters
   lapply(read.csv)
 
-names(coords) <- c("board_2020", "board_2021", "boardDay_2020", "boardDay_2021", "stops", "cykl", "tier", "voi")
+names(coords) <- c("board_2020", "board_2021", "boardDay_2020", "boardDay_2021", "stops", "cykl", "taxi", "tier", "voi")
+
+coords$letbane <- readLines("http://apps.odense.dk/data/newtags/323-dk-light.json") %>% 
+  paste(collapse = "\n")
 
 points <- c(
   "Stoppesteder" = "stops",
   "Lånecykler" = "cykl",
   "Tier løbehjul" = "tier",
-  "Voi løbehjul" = "voi"
+  "Voi løbehjul" = "voi",
+  "Taxi holdepladser" = "taxi",
+  "Letbane arbejde" = "letbane"
 )
 
 years <- c(
@@ -33,15 +50,10 @@ maptiler <- Sys.getenv("MAPTILER_API_KEY")
 thunder <- Sys.getenv("THUNDERFOREST_API_KEY")
 
 tiles <- c(
+  "Positron" = paste0("https://api.maptiler.com/maps/positron/{z}/{x}/{y}.png?key=", maptiler),
   "Standard" = "Standard",
   "Streets" = paste0("https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=", maptiler),
-  "Satellite" = paste0("https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=", maptiler),
-  "Pastel" = paste0("https://api.maptiler.com/maps/pastel/{z}/{x}/{y}.png?key=", maptiler),
-  "Topo" = paste0("https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=", maptiler),
-  "Transport" = paste0("https://tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=", thunder),
-  "Transport Dark" = paste0("https://tile.thunderforest.com/transport-dark/{z}/{x}/{y}.png?apikey=", thunder),
-  "Atlas" = paste0("https://tile.thunderforest.com/atlas/{z}/{x}/{y}.png?apikey=", thunder),
-  "Neighbourhood" = paste0("https://tile.thunderforest.com/neighbourhood/{z}/{x}/{y}.png?apikey=", thunder)
+  "Transport" = paste0("https://tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey=", thunder)
 )
 
 ui <- navbarPage("Fynbus",
@@ -147,6 +159,29 @@ server <- function(input, output) {
           group = "voi"),
       proxy %>% 
         clearGroup("voi"))
+    
+    ifelse(trans[5] == T,
+           proxy %>%
+             addCircles(
+               lng = ~taxi$long,
+               lat = ~taxi$lat,
+               label = ~taxi$names,
+               color = "#ffd500",
+               radius = 10,
+               weight = 3,
+               group = "taxi"),
+           proxy %>% 
+             clearGroup("taxi"))
+    
+    ifelse(trans[6] == T,
+           proxy %>%
+             addTopoJSON(~letbane,
+                         weight = 3,
+                         color = "#f54242",
+                         fill = F,
+                         group = "letbane"),
+           proxy %>%
+             clearGroup("letbane"))
     
     scaled_points <- function(dat) {
       proxy %>% 
