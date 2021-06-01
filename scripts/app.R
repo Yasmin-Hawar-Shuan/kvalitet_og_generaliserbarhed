@@ -172,7 +172,7 @@ server <- function(input, output) {
         addCircles(
           lng = ~dat$S_LONG,
           lat = ~dat$S_LAT,
-          popup = ~paste(dat$Stopnavn, "Gennemsnit påstigerantal: ", round(dat$occupancy_boarding, digits = 2)),
+          popup = ~paste(dat$Stopnavn, "Gennemsnitligt påstigerantal: ", round(dat$occupancy_boarding, digits = 2)),
           color = "#5f9713",
           radius = dat$occupancy_boarding * 15,
           weight = 3,
@@ -186,7 +186,7 @@ server <- function(input, output) {
         addCircles(
           lng = ~dat$S_LONG,
           lat = ~dat$S_LAT,
-          popup = ~paste(dat$Stopnavn, "Gennemsnit afstigerantal: ", round(dat$occupancy_deboarding, digits = 2)),
+          popup = ~paste(dat$Stopnavn, "Gennemsnitligt afstigerantal: ", round(dat$occupancy_deboarding, digits = 2)),
           color = "#5f9713",
           radius = dat$occupancy_deboarding * 15,
           weight = 3,
