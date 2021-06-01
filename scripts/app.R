@@ -5,12 +5,7 @@ library(tidyverse)
 library(leaflet)
 library(lubridate)
 
-# deselect <- c("turngl", "TurtypeHelrejse", "StartStopPointNr", "SlutStopPointNr", "RejseAar", "RejseMd", "KortNr")
-# 
-# df <- read.csv("../2020/Helrejser_Rejsekortet_januar_2020.csv", sep = ";")[1:10000, ] %>% 
-#   select(-all_of(deselect))
-
-df <- read.csv("../2020/helrejser_numerisk.csv")[1:50000, -1]
+df <- read.csv("../2020/helrejser_rearranged.csv")[1:15000, -1]
 
 df$RejseDato <- df$RejseDato %>% 
   dmy()
@@ -26,16 +21,13 @@ coords <- list.files(".") %>% # setwd to a folder with data from just stops, bic
 
 names(coords) <- c("board_2020", "board_2021", "boardDay_2020", "boardDay_2021", "stops", "cykl", "taxi", "tier", "voi")
 
-coords$letbane <- readLines("http://apps.odense.dk/data/newtags/323-dk-light.json") %>% 
-  paste(collapse = "\n")
-
 points <- c(
   "Stoppesteder" = "stops",
   "Lånecykler" = "cykl",
   "Tier løbehjul" = "tier",
   "Voi løbehjul" = "voi",
-  "Taxi holdepladser" = "taxi",
-  "Letbane arbejde" = "letbane"
+  "Taxi holdepladser" = "taxi"
+  # "Letbane arbejde" = "letbane"
 )
 
 years <- c(
@@ -60,9 +52,9 @@ ui <- navbarPage("Fynbus",
                  tabPanel("Plots",
                           sidebarLayout(
                             sidebarPanel(
-                              varSelectInput(inputId = "dropdownX", label = "X-axis", data = df),
-                              varSelectInput(inputId = "dropdownY", label = "Y-axis", data = df),
-                              varSelectInput(inputId = "dropdownC", label = "Colour", data = df),
+                              varSelectInput(inputId = "dropdownX", label = "X-axis", data = df[1:15]),
+                              varSelectInput(inputId = "dropdownY", label = "Y-axis", data = df[1:15]),
+                              varSelectInput(inputId = "dropdownC", label = "Colour", data = df[16:41]),
                               width = 2
                           ),
                           mainPanel(
@@ -173,16 +165,6 @@ server <- function(input, output) {
            proxy %>% 
              clearGroup("taxi"))
     
-    ifelse(trans[6] == T,
-           proxy %>%
-             addTopoJSON(~letbane,
-                         weight = 3,
-                         color = "#f54242",
-                         fill = F,
-                         group = "letbane"),
-           proxy %>%
-             clearGroup("letbane"))
-    
     scaled_points <- function(dat) {
       proxy %>% 
         clearGroup("stops") %>%
@@ -190,7 +172,7 @@ server <- function(input, output) {
         addCircles(
           lng = ~dat$S_LONG,
           lat = ~dat$S_LAT,
-          popup = ~paste(dat$Stopnavn, "Gennemsnit påstigerantal: ", dat$occupancy_boarding),
+          popup = ~paste(dat$Stopnavn, "Gennemsnit påstigerantal: ", round(dat$occupancy_boarding, digits = 2)),
           color = "#5f9713",
           radius = dat$occupancy_boarding * 15,
           weight = 3,
@@ -204,7 +186,7 @@ server <- function(input, output) {
         addCircles(
           lng = ~dat$S_LONG,
           lat = ~dat$S_LAT,
-          popup = ~paste(dat$Stopnavn, "Gennemsnit afstigerantal: ", dat$occupancy_deboarding),
+          popup = ~paste(dat$Stopnavn, "Gennemsnit afstigerantal: ", round(dat$occupancy_deboarding, digits = 2)),
           color = "#5f9713",
           radius = dat$occupancy_deboarding * 15,
           weight = 3,
